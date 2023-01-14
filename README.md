@@ -44,8 +44,7 @@ Here is the code for the graphic user interface:
 			from tkinter import *
 			import tkinter.scrolledtext as tkscrolled
 			from gtts import gTTS
-
-# GLOBAL ATTRIBUTES
+			
 			ALLOW_SIGNUP=True # whether the login window should first appear before prediction, or bypassed
 			ALLOW_TERMINAL = False # whether to show terminal for executing SQL queries
 
@@ -573,7 +572,7 @@ Here is the code for the graphic user interface:
 			else:
 			    predict_from_camera()
 
-			This is the output generated from the above code:
+This is the output generated from the above code:
 
 ![111](https://user-images.githubusercontent.com/112726898/212461772-2cab1684-64b4-4dfb-8b7f-b1f7fc583c30.JPG)
 ![222](https://user-images.githubusercontent.com/112726898/212461776-9b300433-bd49-4cf8-bf4c-45dd13363c9b.JPG)
