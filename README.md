@@ -34,5 +34,12 @@ which will also have a login form and enable the user to test the system with th
 Here is the code for the graphic user interface:
 
 This is the output generated from the above code:
+![111](https://user-images.githubusercontent.com/112726898/212461772-2cab1684-64b4-4dfb-8b7f-b1f7fc583c30.JPG)
+![222](https://user-images.githubusercontent.com/112726898/212461776-9b300433-bd49-4cf8-bf4c-45dd13363c9b.JPG)
+![555](https://user-images.githubusercontent.com/112726898/212461781-181a1368-acc5-4030-b5f7-3190e405b64c.JPG)
+![666](https://user-images.githubusercontent.com/112726898/212461785-cd87d353-9bab-4a61-853c-1b0d303c583f.JPG)
+![777](https://user-images.githubusercontent.com/112726898/212461805-567ebc30-b9ac-4daa-9532-b384a767e007.JPG)
+![888](https://user-images.githubusercontent.com/112726898/212461820-aee29d45-ff41-4917-b5f9-8256462a4f15.JPG)
+![999](https://user-images.githubusercontent.com/112726898/212461826-7d28cfaf-1be1-4616-b9d4-14b4c15e7701.JPG)
 
 
