@@ -28,6 +28,282 @@ traffic signs we are ready to begin the actual coding and we will start by train
 
 Here is the code to train the model and test it's accuracy internally:
 
+			import cv2 as cv
+			import os
+			import pandas as pd
+			import numpy as np
+			import matplotlib.pyplot as plt
+
+			train_csv = "train.csv"
+			train_meta_df = pd.read_csv(train_csv)
+
+			print(train_meta_df.shape)
+			train_meta_df.head()
+
+			limit_size=44 # drop all where width and height < this value
+
+			width_indexer = train_meta_df["Width"] >= limit_size
+			height_indexer = train_meta_df["Height"] >= limit_size
+
+			indexer = np.logical_and(width_indexer, height_indexer)
+
+			train_meta_df = train_meta_df[indexer]
+			train_meta_df.shape
+
+			df = train_meta_df.copy()
+			df = df[["ClassId", "Path"]]
+			df["ClassId"] = df["ClassId"]
+			print(df.shape)
+			df.head()
+
+			add_nons=False
+			if add_nons: # add non-traffic
+			    non_path = "dataset//Train//Non"
+			    non_data, non_labels = [], []
+			    contents = os.listdir(non_path)
+
+			    data = {"ClassId":[], "Path":[]}
+
+			    for path in contents:
+				impath = os.path.join("Train/Non/"+path)
+				data["ClassId"].append(0)
+				data["Path"].append(impath)
+
+			    non_data_df = pd.DataFrame(data)
+
+			    main_df = pd.concat([df, non_data_df], ignore_index=True)
+			    print(main_df.shape)
+			else:
+			    main_df=df
+			labels = main_df["ClassId"].values
+			class_ids = np.unique(labels)
+			nclasses = len(class_ids)
+			print("NClasses :", nclasses)
+			plt.hist(labels, bins=nclasses)
+			plt.show()
+
+			indices = np.arange(len(labels))
+			np.random.shuffle(indices)
+			shuffled = np.array(labels)[indices]
+
+			sum(shuffled==np.array(labels)) / len(labels)
+
+			from sklearn.model_selection import train_test_split
+			x_indices = np.arange(len(labels))
+			y = labels
+
+			train_indices, val_indices, y_train, y_val = train_test_split(x_indices, y, test_size=0.2, random_state=42, stratify=y)
+
+			len(y_train), len(y_val)
+
+			train_df = pd.DataFrame(main_df.values[train_indices])
+			val_df = pd.DataFrame(main_df.values[val_indices])
+			train_df.columns = main_df.columns
+			val_df.columns = main_df.columns
+
+			train_df["ClassId"] = train_df["ClassId"].astype(np.int32)
+			val_df["ClassId"] = val_df["ClassId"].astype(np.int32)
+
+			print("TRAIN DF.shape :", train_df.shape)
+			print("VAL DF.shape :", val_df.shape)
+
+			train_df.head()
+
+			fig, axes = plt.subplots(nrows=1, ncols=2)
+			axes[0].hist(y_train, bins=nclasses)
+			axes[0].set_title("Training labels distribution")
+			axes[1].hist(y_val, bins=nclasses)
+			axes[1].set_title("Validation labels distribution")
+			fig.set_size_inches(10, 4)
+			plt.show()
+
+			from keras.preprocessing.image import ImageDataGenerator
+			imsize=80
+			batch_size=32
+
+			params = {
+			    "x_col":"Path",
+			    "y_col":"ClassId",
+			    "class_mode":"other",
+			    "batch_size":batch_size,
+			    "color_mode":"rgb",
+			    "shuffle":True
+			}
+
+			data_generator = ImageDataGenerator(
+			    rescale=1./255,
+			    horizontal_flip=True
+			)
+
+			train_data_generator = data_generator.flow_from_dataframe(
+			    train_df,
+			    directory="dataset",
+			    target_size=(imsize, imsize),
+			    **params
+			)
+
+			validation_data_generator = data_generator.flow_from_dataframe(
+			    val_df,
+			    directory="dataset",
+			    target_size=(imsize, imsize),
+			    **params
+			)
+
+			# running this unit will fetch off one batch; so currently disabled
+			if False:
+			    look = 11
+			    for X, y in train_data_generator:
+				for i in range(len(y)):
+				    if y[i] == look:
+					image = X[i]
+					plt.imshow(image)
+					break
+				print(y)
+				break
+
+			from tensorflow import keras
+			from tensorflow.keras.models import Sequential
+			from tensorflow.keras.layers import Conv2D, Dense, MaxPooling2D, Dropout, Flatten
+			def make_model():
+			    reg = keras.regularizers.l1(0.01)
+			    init = "he_uniform"
+			    drop_rate=0.2
+
+			    model = Sequential()
+			    model.add(Conv2D(filters=32, kernel_size=(5,5), activation='relu', input_shape=(imsize, imsize, 3), 
+					     kernel_regularizer=reg, kernel_initializer=init))
+			    model.add(MaxPooling2D(pool_size=(2, 2)))
+			    model.add(Dropout(rate=drop_rate))
+			    model.add(Conv2D(filters=64, kernel_size=(3, 3), activation='relu', kernel_regularizer=reg, kernel_initializer=init))
+			    model.add(MaxPooling2D(pool_size=(2, 2)))
+			    model.add(Dropout(rate=drop_rate))
+			    model.add(Conv2D(filters=128, kernel_size=(3, 3), activation='relu', kernel_regularizer=reg, kernel_initializer=init))
+			    model.add(MaxPooling2D(pool_size=(2, 2)))
+			    model.add(Flatten())
+			    model.add(Dense(256, activation='relu', kernel_regularizer=reg, kernel_initializer=init))
+			    model.add(Dropout(rate=0.2))
+			    model.add(Dense(43, activation='softmax'))
+
+			    #Compilation of the model
+			    model.compile(loss='sparse_categorical_crossentropy', 
+					  optimizer=keras.optimizers.Adam(learning_rate=0.001),
+					  metrics=['accuracy'])
+			    return model
+
+			save_path = "model43_30_regv.h5"
+			model = None
+			try:
+			    model = keras.models.load_model(save_path)
+			    print("MODEL LOADED @'{}'".format(save_path))
+			except Exception as e:
+			    print(e)
+			    model = make_model()
+			    print("MODEL CREATED...")
+			model.summary()
+
+			history = model.fit(
+			    train_data_generator,
+			    steps_per_epoch = len(y_train)//batch_size,
+			    validation_data=validation_data_generator,
+			    validation_steps=len(y_val)//batch_size,
+			    epochs=5)
+
+			model.save(save_path)
+
+			model.evaluate(validation_data_generator, steps=len(y_val)//batch_size)
+			test_meta_df = pd.read_csv("dataset//Test.csv")
+			test_meta_df.head()
+			width_indexer = test_meta_df["Width"] >= limit_size
+			height_indexer = test_meta_df["Height"] >= limit_size
+
+			indexer = np.logical_and(width_indexer, height_indexer)
+
+			test_meta_df = test_meta_df[indexer]
+			test_df = test_meta_df.copy()[["ClassId", "Path"]]
+			test_df["ClassId"] = test_df["ClassId"].values
+			test_df.head()
+
+			test_data_generator = data_generator.flow_from_dataframe(
+			    test_df,
+			    directory="dataset",
+			    target_size=(imsize, imsize),
+			    **params
+			)
+
+			model.evaluate(test_data_generator, steps=len(test_df)//batch_size)
+			for batch in test_data_generator:
+			    X, y = batch
+			    proba = model.predict(X)
+			    y_pred = proba.argmax(axis=1)
+			    true_indexer = (y==y_pred)
+			    selectionX, selectiony = X[true_indexer], y[true_indexer]
+			    break
+			len(selectiony)
+
+			classes = { 0:"None",
+				    1:'Speed limit (20km/h)',
+				    2:'Speed limit (30km/h)', 
+				    3:'Speed limit (50km/h)', 
+				    4:'Speed limit (60km/h)', 
+				    5:'Speed limit (70km/h)', 
+				    6:'Speed limit (80km/h)', 
+				    7:'End of speed limit (80km/h)', 
+				    8:'Speed limit (100km/h)', 
+				    9:'Speed limit (120km/h)', 
+				    10:'No passing', 
+				    11:'No passing veh over 3.5 tons', 
+				    12:'Right-of-way at intersection', 
+				    13:'Priority road', 
+				    14:'Yield', 
+				    15:'Stop', 
+				    16:'No vehicles', 
+				    17:'Veh > 3.5 tons prohibited', 
+				    18:'No entry', 
+				    19:'General caution', 
+				    20:'Dangerous curve left', 
+				    21:'Dangerous curve right', 
+				    22:'Double curve', 
+				    23:'Bumpy road', 
+				    24:'Slippery road', 
+				    25:'Road narrows on the right', 
+				    26:'Road work', 
+				    27:'Traffic signals', 
+				    28:'Pedestrians', 
+				    29:'Children crossing', 
+				    30:'Bicycles crossing', 
+				    31:'Beware of ice/snow',
+				    32:'Wild animals crossing', 
+				    33:'End speed + passing limits', 
+				    34:'Turn right ahead', 
+					35:'Turn left ahead', 
+				    36:'Ahead only', 
+				    37:'Go straight or right', 
+				    38:'Go straight or left', 
+				    39:'Keep right', 
+				    40:'Keep left', 
+				    41:'Roundabout mandatory', 
+				    42:'End of no passing', 
+				    43:'End no passing veh > 3.5 tons' }
+
+			img = cv.imread("Test//00115.png")
+
+			if True: # add noise
+			    nsize = int(imsize*0.6)
+			    r = cv.resize(img, (nsize, nsize))
+			    img = cv.resize(r, (imsize, imsize))
+			else:
+			    img = cv.resize(img, (imsize, imsize))
+			img = img/255.0
+
+			plt.imshow(img)
+			plt.show()
+			proba = model.predict(np.array([img]))
+			np.round(proba, 3)
+			pred = np.argmax(proba[0])
+			pred
+
+			classes[pred+1]
+
 When we have trained a model with a satisfying accuracy score, it's time to put that model to use and implement it within a graphic user interface,
 which will also have a login form and enable the user to test the system with the computer's webcam.
 
