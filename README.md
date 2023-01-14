@@ -100,480 +100,480 @@ Here is the code for the graphic user interface:
 			nclasses = len(classes)
 			target_size=None
 
-#load the trained model to classify sign
-model_path = "model43_32_regv.h5"
-model = None
+			#load the trained model to classify sign
+			model_path = "model43_32_regv.h5"
+			model = None
 
-try:
-    model = keras.models.load_model(model_path)
-    # automatically infer the shape of the input images
-    config = model.get_config() 
-    input_shape = config["layers"][0]["config"]["batch_input_shape"]
-    target_size = input_shape[1]
-except Exception as e:
-    print("An error occurred :", e)
-    sys.exit()
+			try:
+			    model = keras.models.load_model(model_path)
+			    # automatically infer the shape of the input images
+			    config = model.get_config() 
+			    input_shape = config["layers"][0]["config"]["batch_input_shape"]
+			    target_size = input_shape[1]
+			except Exception as e:
+			    print("An error occurred :", e)
+			    sys.exit()
 
-def predict_class(image):
-    """
-    @params
-    image : ndarray
-        the image from which to detect a value
-    """
-    images = np.array([image])
-    probabilities = model.predict(images, verbose=0)[0]
-    pred_idx = np.argmax(probabilities)
-    pred_proba = probabilities[pred_idx]
-    return pred_idx, pred_proba
+			def predict_class(image):
+			    """
+			    @params
+			    image : ndarray
+				the image from which to detect a value
+			    """
+			    images = np.array([image])
+			    probabilities = model.predict(images, verbose=0)[0]
+			    pred_idx = np.argmax(probabilities)
+			    pred_proba = probabilities[pred_idx]
+			    return pred_idx, pred_proba
 
-def splitter_predict_class(image, soft_vote=True):
-    """
-    soft_vote is mode where we return the class with the highest probability
-    The opposite of this is called hard_voting where we look at the most predicted class and return that
-    """
-    # speed up opencv
-    cv.setUseOptimized(True)
-    cv.setNumThreads(4) # system-dependent
-    img = image.copy()
-ss = cv.ximgproc.segmentation.createSelectiveSearchSegmentation()
-    ss.setBaseImage(img)
-    ss.switchToSelectiveSearchFast()
-    
-    rects = ss.process()
-    windows = []
-    # optimize here sort by w,h ; pick after each N
-    for x, y, w, h in rects[:400]:
-        startx, starty, endx, endy = x, y, x+w, y+h
-        roi = img[starty:endy, startx:endx]
-        roi = cv.resize(roi, dsize=(target_size, target_size), interpolation=cv.INTER_AREA)
-        windows.append(roi)
-    windows = np.array(windows)
-    windows = windows.reshape(windows.shape[0], windows.shape[1], windows.shape[2], 3)
-    windows = windows/255.0
-    predictions = model.predict(windows, verbose=0)
-    pred_idx = None
-    pred_proba = None
-    N, _ = predictions.shape
+			def splitter_predict_class(image, soft_vote=True):
+			    """
+			    soft_vote is mode where we return the class with the highest probability
+			    The opposite of this is called hard_voting where we look at the most predicted class and return that
+			    """
+			    # speed up opencv
+			    cv.setUseOptimized(True)
+			    cv.setNumThreads(4) # system-dependent
+			    img = image.copy()
+			ss = cv.ximgproc.segmentation.createSelectiveSearchSegmentation()
+			    ss.setBaseImage(img)
+			    ss.switchToSelectiveSearchFast()
 
-    if soft_vote: # soft voting
-        max_probas = predictions.max(axis=0) # N, 43 -> N
-        pred_idx = np.argmax(max_probas)
-        pred_proba = max_probas[pred_idx]
-    else: # hard voting
-        y_preds = np.argmax(predictions, axis=1)
-        y_probas = np.max(predictions, axis=1)
-        uniques, counts = np.unique(y_preds, return_counts=True)
-        mxidx = np.argmax(counts)
-        pred_idx = uniques[mxidx]
-	  # get probability of most voted
-        indexer = (y_preds==pred_idx)
-        probas = y_probas[indexer]
-        pred_proba = np.sum(probas)/np.sum(indexer)
-    return pred_idx, pred_proba
+			    rects = ss.process()
+			    windows = []
+			    # optimize here sort by w,h ; pick after each N
+			    for x, y, w, h in rects[:400]:
+				startx, starty, endx, endy = x, y, x+w, y+h
+				roi = img[starty:endy, startx:endx]
+				roi = cv.resize(roi, dsize=(target_size, target_size), interpolation=cv.INTER_AREA)
+				windows.append(roi)
+			    windows = np.array(windows)
+			    windows = windows.reshape(windows.shape[0], windows.shape[1], windows.shape[2], 3)
+			    windows = windows/255.0
+			    predictions = model.predict(windows, verbose=0)
+			    pred_idx = None
+			    pred_proba = None
+			    N, _ = predictions.shape
 
-def view_image(image, winname="<DEMO>"):
-    cv.namedWindow(winname, cv.WINDOW_NORMAL) # create resizable window
-    cv.imshow(winname, image)
-    cv.waitKey()
+			    if soft_vote: # soft voting
+				max_probas = predictions.max(axis=0) # N, 43 -> N
+				pred_idx = np.argmax(max_probas)
+				pred_proba = max_probas[pred_idx]
+			    else: # hard voting
+				y_preds = np.argmax(predictions, axis=1)
+				y_probas = np.max(predictions, axis=1)
+				uniques, counts = np.unique(y_preds, return_counts=True)
+				mxidx = np.argmax(counts)
+				pred_idx = uniques[mxidx]
+				  # get probability of most voted
+				indexer = (y_preds==pred_idx)
+				probas = y_probas[indexer]
+				pred_proba = np.sum(probas)/np.sum(indexer)
+			    return pred_idx, pred_proba
 
-def predict_from_camera(camera_id=0):
-    """
-    @params
-    camera_id: int or str, default=0
-        the source of the video to be used in prediction
-        -A value of 0 means webcam
-        -A string means a path/directory to a video
-    """
-    print("This is a demo of the prediction window that captures from video")
-    print("Press 'q' to quit.")
+			def view_image(image, winname="<DEMO>"):
+			    cv.namedWindow(winname, cv.WINDOW_NORMAL) # create resizable window
+			    cv.imshow(winname, image)
+			    cv.waitKey()
 
-    cap = cv.VideoCapture(camera_id)
-    if not cap.isOpened():
-        return
-    # this is a simulation of the prediction process in progress
-    winname= "TRAFFIC SIGN DETECTOR"
-    while True:
-        run, frame = cap.read()
-        if not run or len(frame)==0:
-            break
-	  img = cv.resize(frame, (target_size, target_size))
-        imgrgb = cv.cvtColor(img, cv.COLOR_BGR2RGB)
-        #idx, proba = splitter_predict_class(imgrgb, soft_vote=True)
-        idx, proba,  = predict_class(imgrgb)
+			def predict_from_camera(camera_id=0):
+			    """
+			    @params
+			    camera_id: int or str, default=0
+				the source of the video to be used in prediction
+				-A value of 0 means webcam
+				-A string means a path/directory to a video
+			    """
+			    print("This is a demo of the prediction window that captures from video")
+			    print("Press 'q' to quit.")
 
-        pred = classes[idx+1]
+			    cap = cv.VideoCapture(camera_id)
+			    if not cap.isOpened():
+				return
+			    # this is a simulation of the prediction process in progress
+			    winname= "TRAFFIC SIGN DETECTOR"
+			    while True:
+				run, frame = cap.read()
+				if not run or len(frame)==0:
+				    break
+				  img = cv.resize(frame, (target_size, target_size))
+				imgrgb = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+				#idx, proba = splitter_predict_class(imgrgb, soft_vote=True)
+				idx, proba,  = predict_class(imgrgb)
 
-        text = "{}".format(pred)
-        
-        
-        language = 'en'
-        myobj = gTTS(text=text, lang=language, slow=False) 
-        myobj.save("sign.mp3")
-        os.system("sign.mp3")
-        
-        
-        frame = cv.putText(frame, text, (10, 40), cv.FONT_HERSHEY_DUPLEX, 0.8, (0, 255, 0), 1)
-        cv.namedWindow(winname, cv.WINDOW_NORMAL) # create resizable window
-        cv.imshow(winname, frame)
-        if cv.waitKey(1) == ord('q'):
-        
-            break
-    cv.destroyAllWindows()
+				pred = classes[idx+1]
 
-class DatabaseHandler:
-    def __init__(self, database_name="data.db"):
-        self.database_name=database_name
-        self.conn = sqlite3.connect(self.database_name)
-        self.cursor = self.conn.cursor()
-        # create users table
-        query = """
-                CREATE TABLE IF NOT EXISTS users(
-                    id integer PRIMARY KEY,
-                    username varchar(25) UNIQUE NOT NULL,
-                    password varchar(25) NOT NULL
-                )
-                """
-        self.execute(query)
+				text = "{}".format(pred)
 
-    def encrypt_password(self, password):
-        # encrypting algorithm for password goes here
-        return password
 
-    def addUser(self, username, password):
-        """adds user credentials to database"""
-        password = self.encrypt_password(password)
-        query = """INSERT INTO users(username, password) VALUES("{}", "{}");""".format(username, password)
-        self.execute(query)
+				language = 'en'
+				myobj = gTTS(text=text, lang=language, slow=False) 
+				myobj.save("sign.mp3")
+				os.system("sign.mp3")
 
-    def getUser(self, username):
-        """checks for user with username"""
-        query = """SELECT * FROM users WHERE username="{}" """.format(username)
-        result = self.cursor.execute(query)
-        return result.fetchone()
-    def verifyUser(self, username, password):
-        """
-        checks if user with given password matching given username exists
-        @params
-        username : str
-            the username to check
-        password : str
-            the un-encrypted raw password to match with username
-        """
-        user =  self.getUser(username)
-        if user:
-            db_pass=user[2]
-            return (self.encrypt_password(password)==db_pass)
-        else:
-            return False
 
-    def deleteUser(self, username):
-        """deletes user with username"""
-        query = """DELETE FROM users WHERE username="{}" """.format(username)
-        self.cursor.execute(query)
+				frame = cv.putText(frame, text, (10, 40), cv.FONT_HERSHEY_DUPLEX, 0.8, (0, 255, 0), 1)
+				cv.namedWindow(winname, cv.WINDOW_NORMAL) # create resizable window
+				cv.imshow(winname, frame)
+				if cv.waitKey(1) == ord('q'):
 
-    def execute(self, query):
-        # a quick database query executer
-        result=self.cursor.execute(query)
-        self.conn.commit()
-        return result
+				    break
+			    cv.destroyAllWindows()
 
-dbHandler = DatabaseHandler()
-#dbHandler.addUser("anilmyne", "anil")
-dbHandler.getUser("anilmyne")
+			class DatabaseHandler:
+			    def __init__(self, database_name="data.db"):
+				self.database_name=database_name
+				self.conn = sqlite3.connect(self.database_name)
+				self.cursor = self.conn.cursor()
+				# create users table
+				query = """
+					CREATE TABLE IF NOT EXISTS users(
+					    id integer PRIMARY KEY,
+					    username varchar(25) UNIQUE NOT NULL,
+					    password varchar(25) NOT NULL
+					)
+					"""
+				self.execute(query)
 
-def terminal():
-    dbHandler = DatabaseHandler()
-    print("-"*10, "DATABASE ACCESS TERMIAL", "-"*10)
-    print("Type sql queries")
-    while True:
-        query = input(">")
-        query = query.strip()
-        try:
-            result = dbHandler.execute(query).fetchall()
-            if type(result) == list:
-                stdout = "\n".join(list(map(str, result)))
-                print(stdout)
-            else:
-                if stdout is not None:
-                    print(stdout)
-        except Exception as e:
-            print("An error occurred :", e)
-        print()
+			    def encrypt_password(self, password):
+				# encrypting algorithm for password goes here
+				return password
 
-if ALLOW_TERMINAL:
-    # show database access termminal
-    import threading
-    terminal_fn = lambda : terminal()
-    t = threading.Thread(target=terminal_fn, args=())
-    t.start()
+			    def addUser(self, username, password):
+				"""adds user credentials to database"""
+				password = self.encrypt_password(password)
+				query = """INSERT INTO users(username, password) VALUES("{}", "{}");""".format(username, password)
+				self.execute(query)
 
-# the GUI
-class GUI():
-    def __init__(self, h=240, w=640, title='South African Traffic Signs'):
-        self.window=tk.Tk()
-        self.window.geometry("{}x{}".format(w, h))
-        self.H=h
-        self.W=w
-        self.dbHandler = DatabaseHandler()
-        self.bgcolor='#364156'
-        self.window.configure(background=self.bgcolor)
+			    def getUser(self, username):
+				"""checks for user with username"""
+				query = """SELECT * FROM users WHERE username="{}" """.format(username)
+				result = self.cursor.execute(query)
+				return result.fetchone()
+			    def verifyUser(self, username, password):
+				"""
+				checks if user with given password matching given username exists
+				@params
+				username : str
+				    the username to check
+				password : str
+				    the un-encrypted raw password to match with username
+				"""
+				user =  self.getUser(username)
+				if user:
+				    db_pass=user[2]
+				    return (self.encrypt_password(password)==db_pass)
+				else:
+				    return False
 
-        # WINDOW CATEGORIES
-        self.WINDOW_HELP=0
-        self.WINDOW_MANUAL=1
-        self.WINDOW_ABOUT=2
+			    def deleteUser(self, username):
+				"""deletes user with username"""
+				query = """DELETE FROM users WHERE username="{}" """.format(username)
+				self.cursor.execute(query)
 
-        # THE MENU
-        # the file menu
-        self.menubar = tk.Menu(self.window)
-        self.window.config(menu=self.menubar)
+			    def execute(self, query):
+				# a quick database query executer
+				result=self.cursor.execute(query)
+				self.conn.commit()
+				return result
 
-        self.file_menu = tk.Menu(self.menubar, tearoff=0)
-        # adding menu Items
-        self.file_menu.add_command(label='Manual', command=lambda: self.generateChildWindow(self.WINDOW_MANUAL))
-        self.file_menu.add_command(label='Exit', command=self.window.destroy)
-        self.menubar.add_cascade(label="File",menu=self.file_menu)
+			dbHandler = DatabaseHandler()
+			#dbHandler.addUser("anilmyne", "anil")
+			dbHandler.getUser("anilmyne")
 
-        self.help_menu = tk.Menu(self.menubar, tearoff=0)
-        self.help_menu.add_command(label="Help", command=lambda: self.generateChildWindow(self.WINDOW_HELP))
-        self.help_menu.add_command(label="About", command=lambda: self.generateChildWindow(self.WINDOW_ABOUT))
-        self.menubar.add_cascade(label="Help", menu=self.help_menu)
+			def terminal():
+			    dbHandler = DatabaseHandler()
+			    print("-"*10, "DATABASE ACCESS TERMIAL", "-"*10)
+			    print("Type sql queries")
+			    while True:
+				query = input(">")
+				query = query.strip()
+				try:
+				    result = dbHandler.execute(query).fetchall()
+				    if type(result) == list:
+					stdout = "\n".join(list(map(str, result)))
+					print(stdout)
+				    else:
+					if stdout is not None:
+					    print(stdout)
+				except Exception as e:
+				    print("An error occurred :", e)
+				print()
 
-        self.window.columnconfigure(0, weight=1)
-        self.window.rowconfigure(0, weight=1)
-        field_size=40
+			if ALLOW_TERMINAL:
+			    # show database access termminal
+			    import threading
+			    terminal_fn = lambda : terminal()
+			    t = threading.Thread(target=terminal_fn, args=())
+			    t.start()
 
-	  # THE MAIN BLOCK
-        self.mid_block=Frame(self.window, borderwidth=8)
-        self.mid_block.grid(row=0, column=0)
-        
-        heading_text="Welcome"
-        self.heading = tk.Label(self.mid_block, text=heading_text, font="Helvetica 18 bold")
-        self.heading.grid(row=0, column=0)
+			# the GUI
+			class GUI():
+			    def __init__(self, h=240, w=640, title='South African Traffic Signs'):
+				self.window=tk.Tk()
+				self.window.geometry("{}x{}".format(w, h))
+				self.H=h
+				self.W=w
+				self.dbHandler = DatabaseHandler()
+				self.bgcolor='#364156'
+				self.window.configure(background=self.bgcolor)
 
-        self.msg_view = tk.Label(self.mid_block, text="", font="Helvetica 1", fg="#f00")
-        self.msg_view .grid(row=1, column=0)
+				# WINDOW CATEGORIES
+				self.WINDOW_HELP=0
+				self.WINDOW_MANUAL=1
+				self.WINDOW_ABOUT=2
 
-        # THE CREDENTIAL BLOCK
-        self.credential_frame = Frame(self.mid_block, borderwidth=5)
-        self.credential_frame.grid(row=2, column=0)
-        
-        self.name_label = tk.Label(self.credential_frame, text="Username :")
-        self.name_label.grid(row=0, column=0)
-        self.username_area = tk.Entry(self.credential_frame, width=field_size)
-        self.username_area.grid(row=0, column=1)
+				# THE MENU
+				# the file menu
+				self.menubar = tk.Menu(self.window)
+				self.window.config(menu=self.menubar)
 
-        self.password_label = tk.Label(self.credential_frame, text="Password :")
-        self.password_label.grid(row=1, column=0)
-        self.password_area = tk.Entry(self.credential_frame, width=field_size)
-        self.password_area.grid(row=1, column=1)
+				self.file_menu = tk.Menu(self.menubar, tearoff=0)
+				# adding menu Items
+				self.file_menu.add_command(label='Manual', command=lambda: self.generateChildWindow(self.WINDOW_MANUAL))
+				self.file_menu.add_command(label='Exit', command=self.window.destroy)
+				self.menubar.add_cascade(label="File",menu=self.file_menu)
 
-        # THE BUTTON BLOCK
-        self.button_frame = Frame(self.mid_block, borderwidth=5)
-        self.button_frame.grid(row=3, column=0)
-        self.login_button = tk.Button(self.button_frame, text="LOGIN", command=self.login)
-        self.login_button.grid(row=0, column=0, padx=(0, 10))
-        self.signup_button = tk.Button(self.button_frame, text="SIGN UP", command=self.signupwin)
-        self.signup_button.grid(row=0, column=2, padx=(10, 0))
+				self.help_menu = tk.Menu(self.menubar, tearoff=0)
+				self.help_menu.add_command(label="Help", command=lambda: self.generateChildWindow(self.WINDOW_HELP))
+				self.help_menu.add_command(label="About", command=lambda: self.generateChildWindow(self.WINDOW_ABOUT))
+				self.menubar.add_cascade(label="Help", menu=self.help_menu)
 
-        self.window.mainloop()
-   def login(self):
-        username = self.username_area.get()
-        password = self.password_area.get()
-        username = username.strip()
-        password = password.strip()
-        msg = ""
-        if len(username) == 0:
-            msg = "Username is required!"
-        elif len(password) == 0:
-            msg = "Password is required!"
-        else:
-            user = self.dbHandler.getUser(username)
-            if user:
-                dbpass = user[2]
-                if dbpass != self.dbHandler.encrypt_password(password):
-                    msg = "Invalid password!"
-            else:
-                msg = "Username does not exist!"
-        if msg:
-            self.msg_view.config(text=msg, font="Helvetica 8", fg="#f00")
-        else:
-            self.msg_view.config(text=msg, font="Helvetica 1", fg="#f00")
-            self.window.destroy()
-            predict_from_camera()
+				self.window.columnconfigure(0, weight=1)
+				self.window.rowconfigure(0, weight=1)
+				field_size=40
 
-    def  signupwin(self):
-        self.signUpWindow()
-    def signup(self):
-        username = self.childwin_username_area.get()
-        password = self.childwin_password_area.get()
-        username = username.strip()
-        password = password.strip()
-        msg = ""
-        if len(username) == 0:
-            msg = "Username is required!"
-        elif len(password) == 0:
-            msg = "Password is required!"
-        else:
-            user = self.dbHandler.getUser(username)
-            if user:
-                msg = "Username already exists!"
-            else:
-                try:
-                    self.dbHandler.addUser(username, password)
-                except:
-                    msg = "An error occured!"
-        if msg:
-            self.childwin_msg_view.config(text=msg, font="Helvetica 8", fg="#f00")
-        else:
-            self.childwin_msg_view.config(text=msg, font="Helvetica 1", fg="#f00")
-            self.childwin.destroy()   
+				  # THE MAIN BLOCK
+				self.mid_block=Frame(self.window, borderwidth=8)
+				self.mid_block.grid(row=0, column=0)
 
-    def signUpWindow(self):
-        """creates sign up window"""
-        self.childwin = tk.Toplevel(self.window)
-        self.childwin.wm_title("Sign Up")
-        field_size=40
+				heading_text="Welcome"
+				self.heading = tk.Label(self.mid_block, text=heading_text, font="Helvetica 18 bold")
+				self.heading.grid(row=0, column=0)
 
-	  # THE CREDENTIAL BLOCK
-        self.childwin.columnconfigure(0, weight=1)
-        self.childwin.rowconfigure(0, weight=1)
-        mid_block=Frame(self.childwin, borderwidth=8)
-        mid_block.grid(row=0, column=0)
+				self.msg_view = tk.Label(self.mid_block, text="", font="Helvetica 1", fg="#f00")
+				self.msg_view .grid(row=1, column=0)
 
-        heading_text="SignUp"
-        heading = tk.Label(mid_block, text=heading_text, font="Helvetica 18 bold")
-        heading.grid(row=0, column=0)
+				# THE CREDENTIAL BLOCK
+				self.credential_frame = Frame(self.mid_block, borderwidth=5)
+				self.credential_frame.grid(row=2, column=0)
 
-        self.childwin_msg_view = tk.Label(mid_block, text="", font="Helvetica 1", fg="#f00")
-        self.childwin_msg_view.grid(row=1, column=0)
+				self.name_label = tk.Label(self.credential_frame, text="Username :")
+				self.name_label.grid(row=0, column=0)
+				self.username_area = tk.Entry(self.credential_frame, width=field_size)
+				self.username_area.grid(row=0, column=1)
 
-        credential_frame = Frame(mid_block, borderwidth=5);
-        credential_frame.grid(row=2, column=0)
-        
-        name_label = tk.Label(credential_frame, text="Username :")
-        name_label.grid(row=0, column=0)
-        self.childwin_username_area = tk.Entry(credential_frame, width=field_size)
-        self.childwin_username_area.grid(row=0, column=1)
+				self.password_label = tk.Label(self.credential_frame, text="Password :")
+				self.password_label.grid(row=1, column=0)
+				self.password_area = tk.Entry(self.credential_frame, width=field_size)
+				self.password_area.grid(row=1, column=1)
 
-        password_label = tk.Label(credential_frame, text="Password :")
-        password_label.grid(row=1, column=0)
-        self.childwin_password_area = tk.Entry(credential_frame, width=field_size)
-        self.childwin_password_area.grid(row=1, column=1)
+				# THE BUTTON BLOCK
+				self.button_frame = Frame(self.mid_block, borderwidth=5)
+				self.button_frame.grid(row=3, column=0)
+				self.login_button = tk.Button(self.button_frame, text="LOGIN", command=self.login)
+				self.login_button.grid(row=0, column=0, padx=(0, 10))
+				self.signup_button = tk.Button(self.button_frame, text="SIGN UP", command=self.signupwin)
+				self.signup_button.grid(row=0, column=2, padx=(10, 0))
 
-        register_button = tk.Button(mid_block, text="Sign Up", command=self.signup)
-        register_button.grid(row=3, column=0)
-    def generateChildWindow(self, wincat):
-        """
-        this creates a blank window with text
-        @params
-        wincat : int
-            the category of window ; this determines what content to display
-        """
-        text = None
-        heading = None
-        if wincat==self.WINDOW_HELP:
-            heading="""HELP"""
-            text = """For any emergency enquiries, you can reach out to our system administrator Samukelo Hadebe, at 072 863 9007. 
-            
-            
-            
-            FREQUENTLY ASKED QUESTIONS
-            
-            #1 How to install the application? The application is available on GitHub as an open-source application freely available to all for the demo as we aim to improve the system rapidly.
-            
-            #2 How to register to the system? If you don't already have an account you can simply click on "Sign Up" when the welcome window pops up, after signing up, only then can you login and begin using the application.
-            
-            #3 On which devices is the first version accessible? The first version of the system is accessible through Windows and Mac as we aim to improve the image classification before making the application available on Play Store for large scale use when it's optimized.
-            
-            
-            
-With this being the first version of the system, we would really appreciate any constructive feedback that would help us improve the system for further versions, especially from car drivers who would such a system or car insurance companies who would have the system implemented by their insured drivers.
-            
-            """
-        elif wincat==self.WINDOW_MANUAL:
-            heading="""USER MANUAL"""
-            text = """STEP-BY-STEP GUIDE
+				self.window.mainloop()
+			   def login(self):
+				username = self.username_area.get()
+				password = self.password_area.get()
+				username = username.strip()
+				password = password.strip()
+				msg = ""
+				if len(username) == 0:
+				    msg = "Username is required!"
+				elif len(password) == 0:
+				    msg = "Password is required!"
+				else:
+				    user = self.dbHandler.getUser(username)
+				    if user:
+					dbpass = user[2]
+					if dbpass != self.dbHandler.encrypt_password(password):
+					    msg = "Invalid password!"
+				    else:
+					msg = "Username does not exist!"
+				if msg:
+				    self.msg_view.config(text=msg, font="Helvetica 8", fg="#f00")
+				else:
+				    self.msg_view.config(text=msg, font="Helvetica 1", fg="#f00")
+				    self.window.destroy()
+				    predict_from_camera()
 
-		#1 Open the application
-            
-            Navigate to the application on 
-            your device and open it, 
-            allow it to load and a 
-            welcome screen will pop up.
-            
-            
-            #2 Create an account
-            
-            If you don't already have 
-            an account, click on the 
-            sign up button that appears 
-            on the welcome screen.
-            A registration window will 
-            pop up, fill in your 
-            information and click sign 
-            up to successfully create 
-            an account.
-            
-            
-            #3 Login to your account
-            
-            If you already have an 
-            account, simply fill in 
-            your username and password 
-            on the welcome screen.
-            
-            
-            #4 Mount the device
-            
-            Mount the device on the 
-            car windshield to allow 
-            the application to clearly 
-            identified road signs as 
-		you drive.
-            
-            
-            #5 Begin driving
-            
-            You are good to go! 
-            As you drive along the 
-            road the application will 
-            identify road signs and 
-            notify you.
-             
-             
-            """
-            
-        elif wincat==self.WINDOW_ABOUT:
-            heading="""ABOUT"""
-            text = """On average, in South Africa a car accident occurs once every ten minutes, with 30.8% of those accidents being fatal. One of the major causes of car accidents is distracted driving, to which we decided to bring about a new application that will assist drivers as they travel in national roads to keep them and other drivers safer and preventing some car accidents, leading to more lives being spared.
-            
-            
-            
-Drivers can simply install the application, sign up and login then the system is ready for use. Mounting the computer device on the car windshield as you would a GPS device is the best way to get the optimal use of the system. Once mounted the application will identified road signs alongside the road and notify the driver of the identified road sign.
-            """
-	  self.subwin = tk.Toplevel(self.window)
-        self.subwin.wm_title(heading)
+			    def  signupwin(self):
+				self.signUpWindow()
+			    def signup(self):
+				username = self.childwin_username_area.get()
+				password = self.childwin_password_area.get()
+				username = username.strip()
+				password = password.strip()
+				msg = ""
+				if len(username) == 0:
+				    msg = "Username is required!"
+				elif len(password) == 0:
+				    msg = "Password is required!"
+				else:
+				    user = self.dbHandler.getUser(username)
+				    if user:
+					msg = "Username already exists!"
+				    else:
+					try:
+					    self.dbHandler.addUser(username, password)
+					except:
+					    msg = "An error occured!"
+				if msg:
+				    self.childwin_msg_view.config(text=msg, font="Helvetica 8", fg="#f00")
+				else:
+				    self.childwin_msg_view.config(text=msg, font="Helvetica 1", fg="#f00")
+				    self.childwin.destroy()   
 
-        # MAIN SECTION
-        mid_block=Frame(self.subwin, borderwidth=8)
-        mid_block.grid(row=0, column=0)
+			    def signUpWindow(self):
+				"""creates sign up window"""
+				self.childwin = tk.Toplevel(self.window)
+				self.childwin.wm_title("Sign Up")
+				field_size=40
 
-        # HEADING SECTION
-        heading_label = tk.Label(mid_block, text=heading, font="Helvetica 13 bold")
-        heading_label.grid(row=0, column=0, sticky="NSEW")
+				  # THE CREDENTIAL BLOCK
+				self.childwin.columnconfigure(0, weight=1)
+				self.childwin.rowconfigure(0, weight=1)
+				mid_block=Frame(self.childwin, borderwidth=8)
+				mid_block.grid(row=0, column=0)
 
-        text_area = tkscrolled.ScrolledText(mid_block, width=65, height=25, wrap='word')
-        text_area.insert(1.0, text)
-        text_area["state"] = tk.DISABLED
-        text_area.grid(row=1, column=0, rowspan=10)
+				heading_text="SignUp"
+				heading = tk.Label(mid_block, text=heading_text, font="Helvetica 18 bold")
+				heading.grid(row=0, column=0)
 
-if ALLOW_SIGNUP:
-    gui = GUI()
-else:
-    predict_from_camera()
+				self.childwin_msg_view = tk.Label(mid_block, text="", font="Helvetica 1", fg="#f00")
+				self.childwin_msg_view.grid(row=1, column=0)
 
-This is the output generated from the above code:
+				credential_frame = Frame(mid_block, borderwidth=5);
+				credential_frame.grid(row=2, column=0)
+
+				name_label = tk.Label(credential_frame, text="Username :")
+				name_label.grid(row=0, column=0)
+				self.childwin_username_area = tk.Entry(credential_frame, width=field_size)
+				self.childwin_username_area.grid(row=0, column=1)
+
+				password_label = tk.Label(credential_frame, text="Password :")
+				password_label.grid(row=1, column=0)
+				self.childwin_password_area = tk.Entry(credential_frame, width=field_size)
+				self.childwin_password_area.grid(row=1, column=1)
+
+				register_button = tk.Button(mid_block, text="Sign Up", command=self.signup)
+				register_button.grid(row=3, column=0)
+			    def generateChildWindow(self, wincat):
+				"""
+				this creates a blank window with text
+				@params
+				wincat : int
+				    the category of window ; this determines what content to display
+				"""
+				text = None
+				heading = None
+				if wincat==self.WINDOW_HELP:
+				    heading="""HELP"""
+				    text = """For any emergency enquiries, you can reach out to our system administrator Samukelo Hadebe, at 072 863 9007. 
+
+
+
+				    FREQUENTLY ASKED QUESTIONS
+
+				    #1 How to install the application? The application is available on GitHub as an open-source application freely available to all for the demo as we aim to improve the system rapidly.
+
+				    #2 How to register to the system? If you don't already have an account you can simply click on "Sign Up" when the welcome window pops up, after signing up, only then can you login and begin using the application.
+
+				    #3 On which devices is the first version accessible? The first version of the system is accessible through Windows and Mac as we aim to improve the image classification before making the application available on Play Store for large scale use when it's optimized.
+
+
+
+			With this being the first version of the system, we would really appreciate any constructive feedback that would help us improve the system for further versions, especially from car drivers who would such a system or car insurance companies who would have the system implemented by their insured drivers.
+
+				    """
+				elif wincat==self.WINDOW_MANUAL:
+				    heading="""USER MANUAL"""
+				    text = """STEP-BY-STEP GUIDE
+
+					#1 Open the application
+
+				    Navigate to the application on 
+				    your device and open it, 
+				    allow it to load and a 
+				    welcome screen will pop up.
+
+
+				    #2 Create an account
+
+				    If you don't already have 
+				    an account, click on the 
+				    sign up button that appears 
+				    on the welcome screen.
+				    A registration window will 
+				    pop up, fill in your 
+				    information and click sign 
+				    up to successfully create 
+				    an account.
+
+
+				    #3 Login to your account
+
+				    If you already have an 
+				    account, simply fill in 
+				    your username and password 
+				    on the welcome screen.
+
+
+				    #4 Mount the device
+
+				    Mount the device on the 
+				    car windshield to allow 
+				    the application to clearly 
+				    identified road signs as 
+					you drive.
+
+
+				    #5 Begin driving
+
+				    You are good to go! 
+				    As you drive along the 
+				    road the application will 
+				    identify road signs and 
+				    notify you.
+
+
+				    """
+
+				elif wincat==self.WINDOW_ABOUT:
+				    heading="""ABOUT"""
+				    text = """On average, in South Africa a car accident occurs once every ten minutes, with 30.8% of those accidents being fatal. One of the major causes of car accidents is distracted driving, to which we decided to bring about a new application that will assist drivers as they travel in national roads to keep them and other drivers safer and preventing some car accidents, leading to more lives being spared.
+
+
+
+			Drivers can simply install the application, sign up and login then the system is ready for use. Mounting the computer device on the car windshield as you would a GPS device is the best way to get the optimal use of the system. Once mounted the application will identified road signs alongside the road and notify the driver of the identified road sign.
+				    """
+				  self.subwin = tk.Toplevel(self.window)
+				self.subwin.wm_title(heading)
+
+				# MAIN SECTION
+				mid_block=Frame(self.subwin, borderwidth=8)
+				mid_block.grid(row=0, column=0)
+
+				# HEADING SECTION
+				heading_label = tk.Label(mid_block, text=heading, font="Helvetica 13 bold")
+				heading_label.grid(row=0, column=0, sticky="NSEW")
+
+				text_area = tkscrolled.ScrolledText(mid_block, width=65, height=25, wrap='word')
+				text_area.insert(1.0, text)
+				text_area["state"] = tk.DISABLED
+				text_area.grid(row=1, column=0, rowspan=10)
+
+			if ALLOW_SIGNUP:
+			    gui = GUI()
+			else:
+			    predict_from_camera()
+
+			This is the output generated from the above code:
 
 ![111](https://user-images.githubusercontent.com/112726898/212461772-2cab1684-64b4-4dfb-8b7f-b1f7fc583c30.JPG)
 ![222](https://user-images.githubusercontent.com/112726898/212461776-9b300433-bd49-4cf8-bf4c-45dd13363c9b.JPG)
