@@ -1,5 +1,4 @@
 # Traffic-Sign-Recognition
-A system that will identify road traffic signs alongside the road as the driver commutes.
 
 In this project we are aiming to create an application that will identify and classify road signs as the driver commutes and notify the driver in case 
 they miss them to aid in avoiding car accidents caused by distracted driving. For this project we will be using Python and its multiple libraries to 
@@ -25,6 +24,8 @@ https://www.kaggle.com/datasets/.
 
 After we have successfully installed Python 3, the Anaconda data science environment and all the required libraries, and downloaded our dataset of 
 traffic signs we are ready to begin the actual coding and we will start by training the model using the downloaded dataset of traffic signs.
+
+![101](https://user-images.githubusercontent.com/112726898/212466208-7ce41cdb-6a1d-4845-9cba-1f1c25912257.JPG)
 
 Here is the code to train the model and test it's accuracy internally:
 
@@ -858,4 +859,4 @@ This is the output generated from the above code:
 ![888](https://user-images.githubusercontent.com/112726898/212461820-aee29d45-ff41-4917-b5f9-8256462a4f15.JPG)
 ![999](https://user-images.githubusercontent.com/112726898/212461826-7d28cfaf-1be1-4616-b9d4-14b4c15e7701.JPG)
 
-
+With this being the first version of the system, a lot of improvements are yet to be made to ensure the application can perform at its optimal state and meet the project goals and objectives.
