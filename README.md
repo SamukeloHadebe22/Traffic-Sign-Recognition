@@ -33,7 +33,9 @@ which will also have a login form and enable the user to test the system with th
 
 Here is the code for the graphic user interface:
 
+
 This is the output generated from the above code:
+
 ![111](https://user-images.githubusercontent.com/112726898/212461772-2cab1684-64b4-4dfb-8b7f-b1f7fc583c30.JPG)
 ![222](https://user-images.githubusercontent.com/112726898/212461776-9b300433-bd49-4cf8-bf4c-45dd13363c9b.JPG)
 ![555](https://user-images.githubusercontent.com/112726898/212461781-181a1368-acc5-4030-b5f7-3190e405b64c.JPG)
